@@ -84,7 +84,7 @@ class My_App(QtWidgets.QMainWindow):
             print("Failed to capture frame")
             return
 
-        processed_frame = self.get_sifty(frame) if self.img_loaded else frame
+        processed_frame = self.sifting(frame) if self.img_loaded else frame
         pixmap = self.convert_cv_to_pixmap(processed_frame)
         self.live_image_label.setPixmap(pixmap)
 
@@ -103,7 +103,7 @@ class My_App(QtWidgets.QMainWindow):
             self._is_cam_enabled = True
             self.toggle_cam_button.setText("&Disable camera")
 
-    def get_sifty(self, frame):
+    def sifting(self, frame):
         """
         Processes the given frame using SIFT to find and highlight the template.
         :param frame: The frame to process.
@@ -113,16 +113,16 @@ class My_App(QtWidgets.QMainWindow):
         kp, descriptors = self.sift.detectAndCompute(gray, None)
 
         matches = self.flann.knnMatch(self.desc_target, descriptors, k=2)
-        good_kp = [i for i, j in matches if i.distance < 0.6 * j.distance]
+        matching_kp = [i for i, j in matches if i.distance < 0.6 * j.distance]
 
-        if len(good_kp) >= 4:
-            img_points = np.float32([self.kp_target[i.queryIdx].pt for i in good_kp]).reshape(-1, 1, 2)
-            frame_points = np.float32([kp[i.trainIdx].pt for i in good_kp]).reshape(-1, 1, 2)
+        if len(matching_kp) >= 4:
+            img_points = np.float32([self.kp_target[i.queryIdx].pt for i in matching_kp]).reshape(-1, 1, 2)
+            frame_points = np.float32([kp[i.trainIdx].pt for i in matching_kp]).reshape(-1, 1, 2)
 
             matrix, _ = cv2.findHomography(img_points, frame_points, cv2.RANSAC, 5.0)
             h, w = self.img.shape
-            og_pts = np.float32([[0, 0], [0, h], [w, h], [w, 0]]).reshape(-1, 1, 2)
-            transformed_pts = cv2.perspectiveTransform(og_pts, matrix)
+            corner_pts = np.float32([[0, 0], [0, h], [w, h], [w, 0]]).reshape(-1, 1, 2)
+            transformed_pts = cv2.perspectiveTransform(corner_pts, matrix)
             processed_frame = cv2.polylines(frame, [np.int32(transformed_pts)], True, (0, 0, 255), 3)
         else:
             processed_frame = frame
